@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DeviceMotion Circle Control</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    height: 100%;
+    background: #0d0f14;
+    touch-action: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  #canvas {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+
+  #hud {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    color: #8fa3bf;
+    font-size: 12px;
+    line-height: 1.6;
+    background: rgba(0,0,0,0.35);
+    padding: 8px 12px;
+    border-radius: 8px;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #permission-overlay {
+    position: fixed;
+    inset: 0;
+    background: #0d0f14;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    gap: 16px;
+    text-align: center;
+    padding: 24px;
+  }
+
+  #permission-overlay p {
+    color: #c8d3e0;
+    max-width: 320px;
+    font-size: 14px;
+    margin: 0;
+  }
+
+  #enable-btn {
+    background: #4f8cff;
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 999px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  #enable-btn:active {
+    background: #3a72d6;
+  }
+
+  #status {
+    color: #6b7d99;
+    font-size: 12px;
+  }
+
+  #diagnostics {
+    color: #4a5568;
+    font-size: 11px;
+    max-width: 320px;
+    line-height: 1.5;
+    text-align: left;
+    background: rgba(255,255,255,0.03);
+    padding: 10px 12px;
+    border-radius: 8px;
+    white-space: pre-wrap;
+  }
+
+  #recenter-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10;
+    background: rgba(79, 140, 255, 0.85);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="hud">
+  raw &alpha;/&beta;/&gamma;: <span id="raw-angles">-, -, -</span><br>
+  screen tilt x/y: <span id="tilt">0.00, 0.00</span><br>
+  orientation: <span id="orient">-</span><br>
+  pos: <span id="pos">0, 0</span>
+</div>
+
+<button id="recenter-btn">Recenter</button>
+
+<div id="permission-overlay">
+  <p>This demo moves a circle by tilting your device (landscape-aware).</p>
+  <button id="enable-btn">Enable Orientation Control</button>
+  <p id="status"></p>
+  <p id="diagnostics"></p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('permission-overlay');
+  const enableBtn = document.getElementById('enable-btn');
+  const statusEl = document.getElementById('status');
+  const diagEl = document.getElementById('diagnostics');
+  const recenterBtn = document.getElementById('recenter-btn');
+
+  // --- Pre-flight diagnostics ---
+  // Runs immediately on load, before the user even taps the button,
+  // so silent failures (esp. file:// or content:// origins) are visible
+  // up front instead of just doing nothing when tapped.
+  function runDiagnostics() {
+    const lines = [];
+    const isSecure = window.isSecureContext;
+    const protocol = window.location.protocol;
+
+    lines.push('protocol: ' + protocol);
+    lines.push('secure context: ' + isSecure);
+    lines.push('DeviceOrientationEvent defined: ' + (typeof DeviceOrientationEvent !== 'undefined'));
+    lines.push('needs iOS permission API: ' +
+      (typeof DeviceOrientationEvent !== 'undefined' &&
+       typeof DeviceOrientationEvent.requestPermission === 'function'));
+    lines.push('screen.orientation.angle: ' +
+      (screen.orientation ? screen.orientation.angle : 'unsupported'));
+
+    if (protocol === 'file:' || protocol === 'content:') {
+      lines.push('');
+      lines.push('\u26a0 You are opening this via ' + protocol + '//. Motion/orientation ' +
+        'sensors require a real https:// (or localhost) origin \u2014 opening a ' +
+        'downloaded file directly has no origin at all, so this will not work ' +
+        'regardless of JS. Host it (e.g. GitHub Pages) and load it by URL.');
+    } else if (!isSecure) {
+      lines.push('');
+      lines.push('\u26a0 This page is not a secure context. Orientation sensors ' +
+        'require https:// (plain http:// on a non-localhost host will ' +
+        'be blocked).');
+    }
+
+    diagEl.textContent = lines.join('\n');
+  }
+  runDiagnostics();
+
+  const rawAnglesEl = document.getElementById('raw-angles');
+  const tiltEl = document.getElementById('tilt');
+  const orientEl = document.getElementById('orient');
+  const posEl = document.getElementById('pos');
+
+  let width, height;
+
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // --- Position state ---
+  // Unlike a velocity/accel system, this maps device tilt DIRECTLY to
+  // an absolute circle position: a given orientation always produces
+  // the same on-screen position, rather than accumulating drift.
+  const circle = {
+    x: 0, y: 0,
+    radius: 28
+  };
+
+  // Tuning constants
+  const TILT_RANGE = 30;      // degrees of tilt (each direction) that maps to full travel to a screen edge
+  const SMOOTHING = 0.18;     // 0-1, higher = snappier/twitchier, lower = smoother/laggier
+  const DEADZONE_DEG = 1.5;   // ignore tiny angle jitter below this many degrees
+
+  function resetCirclePosition() {
+    circle.x = width / 2;
+    circle.y = height / 2;
+    smoothedTiltX = 0;
+    smoothedTiltY = 0;
+  }
+  recenterBtn.addEventListener('click', resetCirclePosition);
+
+  // --- DeviceOrientation handling ---
+  // screen-relative tilt, normalized so "positive x tilt = tilt that
+  // should move the circle right on THIS screen" regardless of which
+  // way the device physically rotated into landscape.
+  let smoothedTiltX = 0;
+  let smoothedTiltY = 0;
+  let lastOrientationAngle = null;
+
+  function getScreenOrientationAngle() {
+    // screen.orientation.angle is the modern, reliable source.
+    // window.orientation is the old iOS fallback (deprecated but still
+    // present on some older Safari versions with no screen.orientation).
+    if (screen.orientation && typeof screen.orientation.angle === 'number') {
+      return screen.orientation.angle;
+    }
+    if (typeof window.orientation === 'number') {
+      return window.orientation;
+    }
+    return 0; // assume portrait-primary if we truly can't tell
+  }
+
+  function handleOrientation(event) {
+    orientationEventReceived = true;
+
+    const alpha = event.alpha;
+    const beta = event.beta;
+    const gamma = event.gamma;
+
+    if (beta === null || gamma === null) return;
+
+    rawAnglesEl.textContent =
+      (alpha === null ? '-' : alpha.toFixed(1)) + ', ' +
+      beta.toFixed(1) + ', ' +
+      gamma.toFixed(1);
+
+    const angle = getScreenOrientationAngle();
+    lastOrientationAngle = angle;
+    orientEl.textContent = angle + '\u00b0';
+
+    // Remap beta/gamma (defined in the device's fixed portrait-native
+    // frame) into screen-relative tilt-left/right and tilt-up/down,
+    // because beta and gamma swap roles as the device rotates through
+    // landscape, and which physical edge is "left" flips between the
+    // two landscape variants (angle 90 vs 270).
+    let screenTiltX, screenTiltY;
+
+    switch (angle) {
+      case 90:
+        // Landscape, rotated so the device's right edge (portrait-native)
+        // is now the top of the screen. gamma drives left/right tilt;
+        // beta drives up/down tilt, sign matched to feel natural.
+        screenTiltX = -beta;
+        screenTiltY = -gamma;
+        break;
+      case 270:
+      case -90:
+        // The other landscape variant: same axes, opposite signs.
+        screenTiltX = beta;
+        screenTiltY = gamma;
+        break;
+      case 180:
+        // Upside-down portrait.
+        screenTiltX = -gamma;
+        screenTiltY = beta;
+        break;
+      default:
+        // 0 / portrait-primary.
+        screenTiltX = gamma;
+        screenTiltY = beta;
+        break;
+    }
+
+    if (Math.abs(screenTiltX) < DEADZONE_DEG) screenTiltX = 0;
+    if (Math.abs(screenTiltY) < DEADZONE_DEG) screenTiltY = 0;
+
+    // exponential smoothing rather than a hard snap, so small hand
+    // tremor doesn't make the circle jitter pixel-to-pixel
+    smoothedTiltX += (screenTiltX - smoothedTiltX) * SMOOTHING;
+    smoothedTiltY += (screenTiltY - smoothedTiltY) * SMOOTHING;
+
+    tiltEl.textContent = smoothedTiltX.toFixed(2) + ', ' + smoothedTiltY.toFixed(2);
+  }
+
+  // --- Animation loop ---
+  function step() {
+    // Direct position mapping: tilt of TILT_RANGE degrees in either
+    // direction places the circle at that screen edge. Center (0 tilt)
+    // is screen center. This is deliberately NOT velocity-based, so a
+    // given orientation always reproduces the same on-screen position
+    // rather than drifting from accumulated integration error.
+    const normX = Math.max(-1, Math.min(1, smoothedTiltX / TILT_RANGE));
+    const normY = Math.max(-1, Math.min(1, smoothedTiltY / TILT_RANGE));
+
+    // normX negative => left half of screen, normX positive => right half
+    circle.x = (width / 2) + normX * (width / 2 - circle.radius);
+    circle.y = (height / 2) + normY * (height / 2 - circle.radius);
+
+    render();
+    updateHud();
+    requestAnimationFrame(step);
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, width, height);
+
+    // subtle grid for spatial reference
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    const grid = 40;
+    for (let gx = 0; gx < width; gx += grid) {
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.lineTo(gx, height);
+      ctx.stroke();
+    }
+    for (let gy = 0; gy < height; gy += grid) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(width, gy);
+      ctx.stroke();
+    }
+
+    // circle with a soft glow
+    const gradient = ctx.createRadialGradient(
+      circle.x, circle.y, 0,
+      circle.x, circle.y, circle.radius * 1.8
+    );
+    gradient.addColorStop(0, 'rgba(79, 140, 255, 0.35)');
+    gradient.addColorStop(1, 'rgba(79, 140, 255, 0)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(circle.x, circle.y, circle.radius * 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#4f8cff';
+    ctx.beginPath();
+    ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#eaf1ff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  function updateHud() {
+    posEl.textContent = Math.round(circle.x) + ', ' + Math.round(circle.y);
+  }
+
+  // --- Permission flow ---
+  // iOS 13+ requires DeviceOrientationEvent.requestPermission(), called
+  // synchronously inside a user gesture handler, or it will reject.
+  // Android / older iOS / desktop just fire the event with no prompt.
+  let orientationEventReceived = false;
+
+  function startListening() {
+    window.addEventListener('deviceorientation', handleOrientation);
+    overlay.style.display = 'none';
+    resetCirclePosition();
+    requestAnimationFrame(step);
+
+    // Watchdog: if no deviceorientation event fires within 2s of
+    // "success", the browser silently accepted the listener but isn't
+    // actually delivering events (e.g. non-https origin, or sensors
+    // disabled for the site with no visible prompt). Surface that
+    // instead of leaving the user staring at a static circle.
+    setTimeout(function () {
+      if (!orientationEventReceived) {
+        overlay.style.display = 'flex';
+        statusEl.textContent =
+          'No orientation data received after 2 seconds. The listener ' +
+          'attached without error, but the browser isn\'t delivering events ' +
+          '\u2014 this usually means the page isn\'t served over https:// ' +
+          '(or localhost), or sensors are disabled for this site in browser settings.';
+        diagEl.textContent += '\n\nwatchdog: deviceorientation never fired';
+      }
+    }, 2000);
+  }
+
+  enableBtn.addEventListener('click', function () {
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(function (result) {
+          if (result === 'granted') {
+            startListening();
+          } else {
+            statusEl.textContent = 'Permission denied. Enable motion access in Settings > Safari > Motion & Orientation Access.';
+          }
+        })
+        .catch(function (err) {
+          statusEl.textContent = 'Error requesting permission: ' + err.message;
+        });
+    } else if (window.DeviceOrientationEvent) {
+      // No permission API needed (Android, older iOS, desktop browsers
+      // that still support the event) \u2014 but that doesn't guarantee
+      // events actually arrive, hence the watchdog in startListening().
+      startListening();
+    } else {
+      statusEl.textContent = 'DeviceOrientation is not supported on this device/browser.';
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>
