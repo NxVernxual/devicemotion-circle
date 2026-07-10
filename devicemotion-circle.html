@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DeviceMotion Circle Control</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    height: 100%;
+    background: #0d0f14;
+    touch-action: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  #canvas {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+
+  #hud {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    color: #8fa3bf;
+    font-size: 12px;
+    line-height: 1.6;
+    background: rgba(0,0,0,0.35);
+    padding: 8px 12px;
+    border-radius: 8px;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  #permission-overlay {
+    position: fixed;
+    inset: 0;
+    background: #0d0f14;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    gap: 16px;
+    text-align: center;
+    padding: 24px;
+  }
+
+  #permission-overlay p {
+    color: #c8d3e0;
+    max-width: 320px;
+    font-size: 14px;
+    margin: 0;
+  }
+
+  #enable-btn {
+    background: #4f8cff;
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 999px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  #enable-btn:active {
+    background: #3a72d6;
+  }
+
+  #status {
+    color: #6b7d99;
+    font-size: 12px;
+  }
+
+  #recenter-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10;
+    background: rgba(79, 140, 255, 0.85);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="hud">
+  ax: <span id="ax">0.00</span><br>
+  ay: <span id="ay">0.00</span><br>
+  pos: <span id="pos">0, 0</span>
+</div>
+
+<button id="recenter-btn">Recenter</button>
+
+<div id="permission-overlay">
+  <p>This demo moves a circle using your device's motion sensors (tilt / shake).</p>
+  <button id="enable-btn">Enable Motion Control</button>
+  <p id="status"></p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const overlay = document.getElementById('permission-overlay');
+  const enableBtn = document.getElementById('enable-btn');
+  const statusEl = document.getElementById('status');
+  const recenterBtn = document.getElementById('recenter-btn');
+
+  const axEl = document.getElementById('ax');
+  const ayEl = document.getElementById('ay');
+  const posEl = document.getElementById('pos');
+
+  let width, height;
+
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // --- Physics state ---
+  const circle = {
+    x: 0, y: 0,        // set on init
+    vx: 0, vy: 0,
+    radius: 28
+  };
+
+  // Tuning constants
+  const ACCEL_SCALE = 18;     // multiplies raw accel (m/s^2) into screen-space force
+  const DAMPING = 0.94;       // velocity decay per frame (friction) — lower = more drag
+  const DEADZONE = 0.15;      // ignore tiny sensor noise below this threshold (m/s^2)
+  const MAX_SPEED = 22;       // px/frame speed cap so it doesn't fly off wildly
+
+  function resetCirclePosition() {
+    circle.x = width / 2;
+    circle.y = height / 2;
+    circle.vx = 0;
+    circle.vy = 0;
+  }
+  resetCirclePosition();
+  recenterBtn.addEventListener('click', resetCirclePosition);
+
+  // --- DeviceMotion handling ---
+  let latestAx = 0;
+  let latestAy = 0;
+
+  function handleMotion(event) {
+    // accelerationIncludingGravity is far more widely supported than
+    // plain `acceleration`, which needs a gravity-isolating sensor
+    // that many phones (esp. Android) don't expose reliably.
+    const accel = event.accelerationIncludingGravity;
+    if (!accel) return;
+
+    // On most phones held upright: tilting device so its right side
+    // dips down produces a value we map to +x screen movement, and
+    // tilting the top down maps to +y. Signs below are chosen so the
+    // circle moves "the way you'd naturally push it" when tilting;
+    // flip if your device orientation makes it feel inverted.
+    let ax = accel.x || 0;
+    let ay = accel.y || 0;
+
+    // Subtract off gravity's resting component roughly by deadzone,
+    // rather than a full high-pass filter (simpler, good enough for a demo).
+    if (Math.abs(ax) < DEADZONE) ax = 0;
+    if (Math.abs(ay) < DEADZONE) ay = 0;
+
+    latestAx = ax;
+    latestAy = ay;
+  }
+
+  // --- Animation loop ---
+  function step() {
+    // screen x movement comes from device's x-axis tilt;
+    // screen y movement is inverted device y-axis (tilting top down = moving down on screen)
+    circle.vx += latestAx * (ACCEL_SCALE / 60);
+    circle.vy += -latestAy * (ACCEL_SCALE / 60);
+
+    // damping (friction) so it settles instead of drifting forever
+    circle.vx *= DAMPING;
+    circle.vy *= DAMPING;
+
+    // speed cap
+    const speed = Math.hypot(circle.vx, circle.vy);
+    if (speed > MAX_SPEED) {
+      const s = MAX_SPEED / speed;
+      circle.vx *= s;
+      circle.vy *= s;
+    }
+
+    circle.x += circle.vx;
+    circle.y += circle.vy;
+
+    // clamp to viewport, killing velocity on the axis that hit a wall
+    if (circle.x - circle.radius < 0) {
+      circle.x = circle.radius;
+      circle.vx = 0;
+    } else if (circle.x + circle.radius > width) {
+      circle.x = width - circle.radius;
+      circle.vx = 0;
+    }
+    if (circle.y - circle.radius < 0) {
+      circle.y = circle.radius;
+      circle.vy = 0;
+    } else if (circle.y + circle.radius > height) {
+      circle.y = height - circle.radius;
+      circle.vy = 0;
+    }
+
+    render();
+    updateHud();
+    requestAnimationFrame(step);
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, width, height);
+
+    // subtle grid for spatial reference
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    const grid = 40;
+    for (let gx = 0; gx < width; gx += grid) {
+      ctx.beginPath();
+      ctx.moveTo(gx, 0);
+      ctx.lineTo(gx, height);
+      ctx.stroke();
+    }
+    for (let gy = 0; gy < height; gy += grid) {
+      ctx.beginPath();
+      ctx.moveTo(0, gy);
+      ctx.lineTo(width, gy);
+      ctx.stroke();
+    }
+
+    // circle with a soft glow
+    const gradient = ctx.createRadialGradient(
+      circle.x, circle.y, 0,
+      circle.x, circle.y, circle.radius * 1.8
+    );
+    gradient.addColorStop(0, 'rgba(79, 140, 255, 0.35)');
+    gradient.addColorStop(1, 'rgba(79, 140, 255, 0)');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(circle.x, circle.y, circle.radius * 1.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#4f8cff';
+    ctx.beginPath();
+    ctx.arc(circle.x, circle.y, circle.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#eaf1ff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  function updateHud() {
+    axEl.textContent = latestAx.toFixed(2);
+    ayEl.textContent = latestAy.toFixed(2);
+    posEl.textContent = Math.round(circle.x) + ', ' + Math.round(circle.y);
+  }
+
+  // --- Permission flow ---
+  // iOS 13+ requires DeviceMotionEvent.requestPermission(), called
+  // synchronously inside a user gesture handler, or it will reject.
+  // Android / older iOS / desktop just fire the event with no prompt.
+  function startListening() {
+    window.addEventListener('devicemotion', handleMotion);
+    overlay.style.display = 'none';
+    requestAnimationFrame(step);
+  }
+
+  enableBtn.addEventListener('click', function () {
+    if (typeof DeviceMotionEvent !== 'undefined' &&
+        typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission()
+        .then(function (result) {
+          if (result === 'granted') {
+            startListening();
+          } else {
+            statusEl.textContent = 'Permission denied. Enable motion access in Settings > Safari > Motion & Orientation Access.';
+          }
+        })
+        .catch(function (err) {
+          statusEl.textContent = 'Error requesting permission: ' + err.message;
+        });
+    } else if (window.DeviceMotionEvent) {
+      // No permission API needed (Android, older iOS, desktop browsers
+      // that still support the event)
+      startListening();
+    } else {
+      statusEl.textContent = 'DeviceMotion is not supported on this device/browser.';
+    }
+  });
+
+})();
+</script>
+
+</body>
+</html>
