@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>devicemotion-circle</title>
+<style>
+  :root {
+    --bg: #0a0b0d;
+    --bg-panel: #111318;
+    --border: #23262e;
+    --text: #e8e6e1;
+    --text-dim: #7a8090;
+    --accent: #c9963a;
+    --accent-dim: #7a5f26;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  .grid-bg {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .grid-bg svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  body {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+    padding: 24px;
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 440px;
+    text-align: center;
+  }
+
+  .eyebrow {
+    color: var(--accent-dim);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0 0 10px;
+  }
+
+  h1 {
+    font-size: clamp(22px, 5vw, 30px);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 14px;
+  }
+
+  p.desc {
+    color: var(--text-dim);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0 0 36px;
+  }
+
+  .links {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  a.link-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 14px;
+    text-align: left;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+
+  a.link-btn:hover,
+  a.link-btn:focus-visible {
+    border-color: var(--accent-dim);
+    transform: translateY(-1px);
+  }
+
+  a.link-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  a.link-btn:active {
+    transform: translateY(0);
+  }
+
+  .link-label {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .link-tag {
+    color: var(--accent);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+
+  .link-name {
+    color: var(--text);
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .bracket {
+    color: var(--text-dim);
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  footer {
+    margin-top: 40px;
+    color: var(--text-dim);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    a.link-btn {
+      transition: none;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg" aria-hidden="true">
+<svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="fadeMask" cx="50%" cy="50%" r="65%">
+      <stop offset="0%" stop-color="white" stop-opacity="0" />
+      <stop offset="35%" stop-color="white" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="white" stop-opacity="1" />
+    </radialGradient>
+    <mask id="gridFade">
+      <rect x="0" y="0" width="1600" height="900" fill="url(#fadeMask)" />
+    </mask>
+  </defs>
+  <g stroke="#3a3f4a" stroke-width="1.2" mask="url(#gridFade)">
+    <line x1="0.0" y1="0.0" x2="800.0" y2="450.0" /><line x1="114.3" y1="0.0" x2="800.0" y2="450.0" /><line x1="228.6" y1="0.0" x2="800.0" y2="450.0" /><line x1="342.9" y1="0.0" x2="800.0" y2="450.0" /><line x1="457.1" y1="0.0" x2="800.0" y2="450.0" /><line x1="571.4" y1="0.0" x2="800.0" y2="450.0" /><line x1="685.7" y1="0.0" x2="800.0" y2="450.0" /><line x1="800.0" y1="0.0" x2="800.0" y2="450.0" /><line x1="914.3" y1="0.0" x2="800.0" y2="450.0" /><line x1="1028.6" y1="0.0" x2="800.0" y2="450.0" /><line x1="1142.9" y1="0.0" x2="800.0" y2="450.0" /><line x1="1257.1" y1="0.0" x2="800.0" y2="450.0" /><line x1="1371.4" y1="0.0" x2="800.0" y2="450.0" /><line x1="1485.7" y1="0.0" x2="800.0" y2="450.0" /><line x1="1600.0" y1="0.0" x2="800.0" y2="450.0" /><line x1="0.0" y1="900.0" x2="800.0" y2="450.0" /><line x1="114.3" y1="900.0" x2="800.0" y2="450.0" /><line x1="228.6" y1="900.0" x2="800.0" y2="450.0" /><line x1="342.9" y1="900.0" x2="800.0" y2="450.0" /><line x1="457.1" y1="900.0" x2="800.0" y2="450.0" /><line x1="571.4" y1="900.0" x2="800.0" y2="450.0" /><line x1="685.7" y1="900.0" x2="800.0" y2="450.0" /><line x1="800.0" y1="900.0" x2="800.0" y2="450.0" /><line x1="914.3" y1="900.0" x2="800.0" y2="450.0" /><line x1="1028.6" y1="900.0" x2="800.0" y2="450.0" /><line x1="1142.9" y1="900.0" x2="800.0" y2="450.0" /><line x1="1257.1" y1="900.0" x2="800.0" y2="450.0" /><line x1="1371.4" y1="900.0" x2="800.0" y2="450.0" /><line x1="1485.7" y1="900.0" x2="800.0" y2="450.0" /><line x1="1600.0" y1="900.0" x2="800.0" y2="450.0" /><line x1="0.0" y1="0.0" x2="800.0" y2="450.0" /><line x1="0.0" y1="64.3" x2="800.0" y2="450.0" /><line x1="0.0" y1="128.6" x2="800.0" y2="450.0" /><line x1="0.0" y1="192.9" x2="800.0" y2="450.0" /><line x1="0.0" y1="257.1" x2="800.0" y2="450.0" /><line x1="0.0" y1="321.4" x2="800.0" y2="450.0" /><line x1="0.0" y1="385.7" x2="800.0" y2="450.0" /><line x1="0.0" y1="450.0" x2="800.0" y2="450.0" /><line x1="0.0" y1="514.3" x2="800.0" y2="450.0" /><line x1="0.0" y1="578.6" x2="800.0" y2="450.0" /><line x1="0.0" y1="642.9" x2="800.0" y2="450.0" /><line x1="0.0" y1="707.1" x2="800.0" y2="450.0" /><line x1="0.0" y1="771.4" x2="800.0" y2="450.0" /><line x1="0.0" y1="835.7" x2="800.0" y2="450.0" /><line x1="0.0" y1="900.0" x2="800.0" y2="450.0" /><line x1="1600.0" y1="0.0" x2="800.0" y2="450.0" /><line x1="1600.0" y1="64.3" x2="800.0" y2="450.0" /><line x1="1600.0" y1="128.6" x2="800.0" y2="450.0" /><line x1="1600.0" y1="192.9" x2="800.0" y2="450.0" /><line x1="1600.0" y1="257.1" x2="800.0" y2="450.0" /><line x1="1600.0" y1="321.4" x2="800.0" y2="450.0" /><line x1="1600.0" y1="385.7" x2="800.0" y2="450.0" /><line x1="1600.0" y1="450.0" x2="800.0" y2="450.0" /><line x1="1600.0" y1="514.3" x2="800.0" y2="450.0" /><line x1="1600.0" y1="578.6" x2="800.0" y2="450.0" /><line x1="1600.0" y1="642.9" x2="800.0" y2="450.0" /><line x1="1600.0" y1="707.1" x2="800.0" y2="450.0" /><line x1="1600.0" y1="771.4" x2="800.0" y2="450.0" /><line x1="1600.0" y1="835.7" x2="800.0" y2="450.0" /><line x1="1600.0" y1="900.0" x2="800.0" y2="450.0" />
+    <rect x="230.1" y="129.4" width="1139.8" height="641.1" fill="none" /><rect x="418.4" y="235.4" width="763.2" height="429.3" fill="none" /><rect x="566.4" y="318.6" width="467.1" height="262.8" fill="none" /><rect x="676.0" y="380.2" width="248.1" height="139.5" fill="none" /><rect x="749.2" y="421.4" width="101.7" height="57.2" fill="none" /><rect x="788.9" y="443.8" width="22.1" height="12.4" fill="none" />
+  </g>
+</svg>
+</div>
+
+<main>
+  <p class="eyebrow">sensor test project</p>
+  <h1>devicemotion-circle</h1>
+  <p class="desc">
+    Tilt-controlled circle demos, built to test device orientation
+    sensors across portrait and landscape modes.
+  </p>
+
+  <div class="links">
+    <a class="link-btn" href="https://nxvernxual.github.io/devicemotion-circle/devicemotion-circle.html">
+      <span class="link-label">
+        <span class="link-tag">[ 01 ]</span>
+        <span class="link-name">devicemotion-circle.html</span>
+      </span>
+      <span class="bracket">&rarr;</span>
+    </a>
+
+    <a class="link-btn" href="https://nxvernxual.github.io/devicemotion-circle/devicemotion-circle.html">
+      <span class="link-label">
+        <span class="link-tag">[ 02 ]</span>
+        <span class="link-name">devicemotion-circle2.html</span>
+      </span>
+      <span class="bracket">&rarr;</span>
+    </a>
+  </div>
+
+  <footer>best viewed on a phone &middot; requires https to access sensors</footer>
+</main>
+
+</body>
+</html>
