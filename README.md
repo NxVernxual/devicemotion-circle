@@ -6,7 +6,7 @@ The core question this project answers: *can a phone's tilt angle reliably and p
 
 ## Why tilt controls, and why this instead of touch
 
-Nebula Clone's primary control scheme is mouse/touch-follow, same as the games it's based on. Tilt is being evaluated as an alternative or supplementary input for mobile play, where a touch-drag control competes for screen space with the player's own view of the map. A tilt scheme frees up the whole screen for viewing, at the cost of needing to solve the problems this repo exists to solve: sensor reliability, orientation-awareness, and a control mapping that doesn't feel inverted or laggy.
+The primary control scheme is mouse/touch-follow, same as the games it's based on. Tilt is being evaluated as an alternative or supplementary input for mobile play, where a touch-drag control competes for screen space with the player's own view of the map. A tilt scheme frees up the whole screen for viewing, at the cost of needing to solve the problems this repo exists to solve: sensor reliability, orientation-awareness, and a control mapping that doesn't feel inverted or laggy.
 
 ## What's in this repo
 
@@ -33,4 +33,4 @@ Documented here because they weren't obvious going in, and are worth remembering
 
 ## Status
 
-Working demo, verified against real device orientation readings across portrait and landscape. Not yet integrated into Nebula Clone — this repo is the isolated proof-of-concept before that wiring happens.
+Working demo, verified against real device orientation readings across portrait and landscape. Not yet integrated into an actual game or real bigger project yet — this repo is the isolated proof-of-concept before that wiring happens.
