@@ -34,3 +34,5 @@ Documented here because they weren't obvious going in, and are worth remembering
 ## Status
 
 Working demo, verified against real device orientation readings across portrait and landscape. Not yet integrated into an actual game or real bigger project yet — this repo is the isolated proof-of-concept before that wiring happens.
+
+lots of bug fixing and errors will be solved and more performance imporovements will be made.
