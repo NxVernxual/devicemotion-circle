@@ -1,8 +1,10 @@
 # Devicemotion-circle
 
-A small test project for evaluating device orientation sensors (`deviceorientation`, angles) as a tilt-based input scheme — built while prototyping control options for a test online **blob game**, a browser-based multiplayer game in the Agar.io/Nebulous.io style.
+A small test project for evaluating device orientation sensors (`deviceorientation`, angles) as a tilt-based input scheme — built while prototyping control options for a test online **blob game**, a browser-based client sided only game in the style of Nebulous.io.
 
-The core question this project answers: *can a phone's tilt angle reliably and predictably move an on-screen object, across both portrait and landscape orientation, with no drift or inversion?* The demos here are that reference implementation — not a game, but a control scheme meant to be lifted into one.
+The main question this project answers is: 
+*can a phone's device tilt angle reliably move an object on screen?, across both portrait and landscape orientation and position ?* 
+The demos here are that reference implementation — not a game, but a control scheme meant to be lifted into one in the far future.
 
 ## Why tilt controls, and why this instead of touch
 
@@ -26,6 +28,7 @@ Open either demo on a **phone**, over **https://** (see constraints below), and 
 
 Documented here because they weren't obvious going in, and are worth remembering before wiring this into the actual game:
 
+Requirements:
 - **Requires a real `https://` (or `localhost`) origin.** Orientation/motion sensors are blocked entirely outside a secure context. This includes `file://` URLs and, less obviously, Android's `content://` URIs (e.g. opening a file straight from the Downloads app) — neither has a browser-recognized origin at all, so the sensor API is unavailable regardless of what the page's JavaScript does. GitHub Pages satisfies this by default.
 - **iOS 13+ requires an explicit permission prompt**, triggered synchronously inside a user tap (`DeviceOrientationEvent.requestPermission()`). It cannot be requested on page load — there must be a real tap in between, or the browser silently rejects it.
 - **A listener can attach with no error and still never receive events.** This happens on unsupported/blocked configurations with no visible failure — the permission call resolves fine, but the sensor simply never fires. Worth building a watchdog/timeout around any production version of this, rather than assuming "no error" means "working."
@@ -35,4 +38,4 @@ Documented here because they weren't obvious going in, and are worth remembering
 
 Working demo, verified against real device orientation readings across portrait and landscape. Not yet integrated into an actual game or real bigger project yet — this repo is the isolated proof-of-concept before that wiring happens.
 
-lots of bug fixing and errors will be solved and more performance imporovements will be made.
+lots of bug fixing and errors will be solved and more performance imporovements will be made. screenshots and instructions will be added for a better demo and good easier testing
