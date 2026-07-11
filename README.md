@@ -1,6 +1,6 @@
-# devicemotion-circle
+# Devicemotion-circle
 
-A small test project for evaluating device orientation sensors (`deviceorientation`, angles) as a tilt-based input scheme — built while prototyping control options for **Nebula Clone**, a browser-based multiplayer game in the Agar.io/Nebulous.io style.
+A small test project for evaluating device orientation sensors (`deviceorientation`, angles) as a tilt-based input scheme — built while prototyping control options for a test online **blob game**, a browser-based multiplayer game in the Agar.io/Nebulous.io style.
 
 The core question this project answers: *can a phone's tilt angle reliably and predictably move an on-screen object, across both portrait and landscape orientation, with no drift or inversion?* The demos here are that reference implementation — not a game, but a control scheme meant to be lifted into one.
 
